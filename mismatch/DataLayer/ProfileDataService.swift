@@ -9,6 +9,7 @@ import Alamofire
 import os
 import SwiftUI
 import SwiftyJSON
+import SwiftData
 
 let PROFILE_API_URL = "https://randomuser.me/api/?results=10"
 
@@ -20,9 +21,21 @@ class ProfileDataService: ObservableObject {
 
     static let shared = ProfileDataService()
 
-    var profileQueue: [ProfileModel] = []
+    @Published var profileQueue: [ProfileModel] = []
+    
+    private init() {
+        Task {
+            // Load profiles from local data store first
+            await loadProfilesFromDataStore()
 
-    func fetchMoreProfilesIfNeeded() {
+            // If no profiles, fetch from the network
+            if profileQueue.isEmpty {
+                fetchMoreProfiles()
+            }
+        }
+    }
+
+    func fetchMoreProfiles() {
         guard profileQueue.isEmpty else {
             Self.logger.debug("Profile queue already contains profiles")
             return
@@ -35,11 +48,56 @@ class ProfileDataService: ObservableObject {
                 // TODO: Show toast
                 return
             }
-            self.profileQueue = profiles // TODO: Append Instead ??
+            
+            // Filter profiles that are not alreay present
+            let filteredProfiles = profiles.filter { model in
+                self.profileQueue.contains(where: { $0.id == model.id }) == false
+            }
+
+            await self.saveToDataStore(newProfiles: filteredProfiles)
+
+            self.profileQueue.append(contentsOf: filteredProfiles)
             self.objectWillChange.send() // Send notification that object has changed
         }
     }
 }
+
+// MARK: - SwiftData Persistence Methods
+
+extension ProfileDataService {
+    private func loadProfilesFromDataStore() async {
+        
+        let fetchDescriptor = FetchDescriptor<ProfileModel>()
+        let profileModels = try? SwiftDataService.shared.modelExecutor.modelContext.fetch(fetchDescriptor)
+        
+        guard let profileModels else {
+            Self.logger.error("No profiles in data store")
+            return
+        }
+        
+        await MainActor.run { [weak self] in
+            guard let self else { return }
+            
+            self.profileQueue = profileModels
+            Self.logger.debug("Loaded \(profileModels.count) profiles from data store")
+        }
+    }
+
+    private func saveToDataStore(newProfiles: [ProfileModel]) async {
+        for profile in newProfiles {
+            await SwiftDataService.shared.modelContainer.mainContext.insert(profile)
+        }
+        
+        do {
+            try await SwiftDataService.shared.modelContainer.mainContext.save()
+            Self.logger.debug("Saved \(newProfiles.count) profiles to the data store")
+        } catch {
+            Self.logger.error("Error saving profiles to data store: \(error)")
+        }
+    }
+}
+
+// MARK: - Network Fetch and JSON Parsing
 
 extension ProfileDataService {
     private func fetchProfilesFromNetwork() async -> [ProfileModel]? {

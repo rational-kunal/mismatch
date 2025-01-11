@@ -10,16 +10,24 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var profileModels: [ProfileModel]
-    
-    let x: ProfileDataService = {
-        let x = ProfileDataService()
-        x.fetchMoreProfilesIfNeeded()
-        return x
-    }()
+    @StateObject var profileDataService = ProfileDataService.shared
 
     var body: some View {
-        ProfileCardListView(profileModelList: profileModels)
+        VStack {
+            Text("mismatch!")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .frame(alignment: .leading)
+                .padding()
+            
+            if profileDataService.profileQueue.isEmpty {
+                ProgressView()
+                    .frame(maxHeight: .infinity)
+            } else {
+                ProfileCardListView(profileModelList: profileDataService.profileQueue)
+                    .frame(maxHeight: .infinity)
+            }
+        }
     }
 }
 
