@@ -7,9 +7,9 @@
 
 import Alamofire
 import os
+import SwiftData
 import SwiftUI
 import SwiftyJSON
-import SwiftData
 
 let PROFILE_API_URL = "https://randomuser.me/api/?results=10"
 
@@ -22,7 +22,7 @@ class ProfileDataService: ObservableObject {
     static let shared = ProfileDataService()
 
     @Published var profileQueue: [ProfileModel] = []
-    
+
     private init() {
         Task {
             // Load profiles from local data store first
@@ -48,7 +48,7 @@ class ProfileDataService: ObservableObject {
                 // TODO: Show toast
                 return
             }
-            
+
             // Filter profiles that are not alreay present
             let filteredProfiles = profiles.filter { model in
                 self.profileQueue.contains(where: { $0.id == model.id }) == false
@@ -62,22 +62,47 @@ class ProfileDataService: ObservableObject {
     }
 }
 
+// MARK: - User actions
+
+extension ProfileDataService {
+    func likeProfile(_ profile: ProfileModel) {
+        profile.toggleLikeOnModelLevel()
+
+        Task {
+            await self.saveToDataStore(newProfiles: [profile])
+            await MainActor.run {
+                self.objectWillChange.send()
+            }
+        }
+    }
+
+    func shortlistProfile(_ profile: ProfileModel) {
+        profile.toggleShortlistOnModelLevel()
+
+        Task {
+            await self.saveToDataStore(newProfiles: [profile])
+            await MainActor.run {
+                self.objectWillChange.send()
+            }
+        }
+    }
+}
+
 // MARK: - SwiftData Persistence Methods
 
 extension ProfileDataService {
     private func loadProfilesFromDataStore() async {
-        
         let fetchDescriptor = FetchDescriptor<ProfileModel>()
         let profileModels = try? SwiftDataService.shared.modelExecutor.modelContext.fetch(fetchDescriptor)
-        
+
         guard let profileModels else {
             Self.logger.error("No profiles in data store")
             return
         }
-        
+
         await MainActor.run { [weak self] in
             guard let self else { return }
-            
+
             self.profileQueue = profileModels
             Self.logger.debug("Loaded \(profileModels.count) profiles from data store")
         }
@@ -87,7 +112,7 @@ extension ProfileDataService {
         for profile in newProfiles {
             await SwiftDataService.shared.modelContainer.mainContext.insert(profile)
         }
-        
+
         do {
             try await SwiftDataService.shared.modelContainer.mainContext.save()
             Self.logger.debug("Saved \(newProfiles.count) profiles to the data store")
@@ -127,6 +152,7 @@ extension ProfileDataService {
               let streetNumber = data["location"]["street"]["number"].number?.stringValue,
               let streetName = data["location"]["street"]["name"].string,
               let city = data["location"]["city"].string,
+              let age = data["dob"]["age"].number?.stringValue,
               let profileImageURLString = data["picture"]["large"].string
         else {
             Self.logger.error("Unable to parse profile data")
@@ -140,6 +166,7 @@ extension ProfileDataService {
             streetNumber: streetNumber,
             streetName: streetName,
             city: city,
+            age: age,
             profileImageURLString: profileImageURLString
         )
     }

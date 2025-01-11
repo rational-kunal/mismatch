@@ -5,11 +5,10 @@
 //  Created by Kunal Kamble on 10/01/25.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
     @StateObject var profileDataService = ProfileDataService.shared
 
     var body: some View {
@@ -19,7 +18,7 @@ struct ContentView: View {
                 .fontWeight(.bold)
                 .frame(alignment: .leading)
                 .padding()
-            
+
             if profileDataService.profileQueue.isEmpty {
                 ProgressView()
                     .frame(maxHeight: .infinity)

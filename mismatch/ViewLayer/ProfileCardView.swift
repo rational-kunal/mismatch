@@ -5,59 +5,52 @@
 //  Created by Kunal Kamble on 10/01/25.
 //
 
-import SDWebImage
-import SDWebImageSwiftUI
 import SwiftUI
+
+let BG_COLOR = Color(red: 255 / 255, green: 113 / 255, blue: 88 / 255)
+let FG_COLOR = Color(red: 199 / 235, green: 208 / 255, blue: 218 / 255)
+let WARM_COLOR = Color(red: 253 / 255, green: 43 / 255, blue: 123 / 255)
+let MEH_COLOR = Color(red: 66 / 235, green: 66 / 255, blue: 66 / 255)
 
 struct ProfileCardView: View {
     let profileModel: ProfileModel
 
+    var likeButton: some View {
+        ProfileCardButtonView(text: "👍", selected: profileModel.liked, backgroundColor: WARM_COLOR) {
+            ProfileDataService.shared.likeProfile(profileModel)
+        }
+    }
+
+    var shortlistButton: some View {
+        ProfileCardButtonView(text: "🫤", selected: profileModel.shortlisted, backgroundColor: MEH_COLOR) {
+            ProfileDataService.shared.shortlistProfile(profileModel)
+        }
+    }
+
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            ZStack(alignment: .leading) {
-                WebImage(url: URL(string: profileModel.profileImageURLString)) { image in
-                    image.resizable() // Control layout like SwiftUI.AsyncImage, you must use this modifier or the view will use the image bitmap size
-                } placeholder: {
-                    Rectangle().foregroundColor(.gray)
-                }
-                .indicator(.activity)
-                .transition(.fade(duration: 0.5))
-                .scaledToFit()
-            }
-            .contentShape(Rectangle())
-            .cornerRadius(SpacingConstants.large)
+        VStack(spacing: 0) {
+            ProfileCardImageView(imageURLString: profileModel.profileImageURLString)
+                .cornerRadius(SpacingConstants.large)
 
             VStack(alignment: .leading) {
-                Text(profileModel.displayTitle)
-                    .font(.largeTitle)
-                    .foregroundStyle(.white)
-
-                Text(profileModel.displaySubtitle)
+                Text(profileModel.displayName)
                     .font(.title)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(FG_COLOR)
+                    .fontWeight(.semibold)
 
-                HStack {
-                    Button(action: {}) {
-                        Text("🙆")
-                            .font(.callout)
-                            .foregroundStyle(.black)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.blue))
-                    }
+                Text("\(Image(systemName: "mappin")) \(profileModel.displayLocation)")
+                    .font(.title2)
+                    .foregroundStyle(FG_COLOR)
 
-                    Button(action: {}) {
-                        Text("🙅")
-                            .font(.callout)
-                            .foregroundStyle(.black)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.blue).stroke(.black, style: .init(lineWidth: 1)))
-                    }
+                HStack(spacing: SpacingConstants.medium) {
+                        likeButton
+                        shortlistButton
                 }
             }
-            .padding(SpacingConstants.large)
         }
+        .padding()
+        .background(BG_COLOR)
+        .cornerRadius(SpacingConstants.large)
     }
 }
 
@@ -69,6 +62,7 @@ struct ProfileCardView: View {
         streetNumber: "8929",
         streetName: "Valwood Pkwy",
         city: "Billings",
+        age: "30",
         profileImageURLString: "https://randomuser.me/api/portraits/men/75.jpg"
     )
     ProfileCardView(profileModel: profileModel)
